@@ -2,40 +2,35 @@
 use gstd::{};
 use pebbles_game_io::*;
 
+// Global variable to store the game state
 static mut PEBBLES_GAME:Option<GameState> = None;
 
 
 #[no_mangle]
  extern "C" fn init() {
-    // 加载并验证初始消息
     let init_msg: PebblesInit = msg::load().expect("Failed to load PebblesInit");
-
-    // 确保初始石子数量大于 0
+  // Validate the initial pebbles count and maximum pebbles per turn
     assert!(
         init_msg.pebbles_count > 0,
         "Initial pebbles count must be greater than 0"
     );
-
-    // 确保每回合最大可取石子数大于 0
     assert!(
         init_msg.max_pebbles_per_turn > 0,
         "Max pebbles per turn must be greater than 0"
     );
-
-    // 确保每回合最大可取石子数不超过初始石子总数
     assert!(
         init_msg.max_pebbles_per_turn <= init_msg.pebbles_count,
         "Max pebbles per turn must be less than or equal to initial pebbles count"
     );
 
-    // 随机选择第一个玩家（用户或程序）
+    // Randomly select the first player (user or program)
     let first_player = if get_random_u32() % 2 == 0 {
         Player::User
     } else {
         Player::Program
     };
 
-    // 初始化游戏状态
+    // Initialize the game state
     let mut game_state = GameState {
         pebbles_count: init_msg.pebbles_count,
         max_pebbles_per_turn: init_msg.max_pebbles_per_turn,
@@ -45,23 +40,19 @@ static mut PEBBLES_GAME:Option<GameState> = None;
         winner: None,
     };
 
-    // 如果第一个玩家是程序，则进行程序的第一回合操作
+     // If the first player is the program, perform the program's first turn
     if first_player == Player::Program {
         game_state.pebbles_remaining -= program_turn(&game_state);
-
-        // 如果剩余石子数为 0，程序获胜
         if game_state.pebbles_remaining == 0 {
             game_state.winner = Some(Player::Program);
             msg::reply(PebblesEvent::Won(Player::Program), 0)
                 .expect("Failed to reply with Won event");
         } else {
-            // 否则回复剩余石子数量给玩家
             msg::reply(PebblesEvent::CounterTurn(game_state.pebbles_remaining), 0)
                 .expect("Failed to reply with CounterTurn event");
         }
     }
 
-    // 将初始化后的游戏状态存入全局变量中
     unsafe {
         PEBBLES_GAME = Some(game_state);
     }
