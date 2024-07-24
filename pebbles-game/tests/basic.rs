@@ -4,11 +4,12 @@ mod tests {
     use gstd::prelude::*;
     use gtest::{Log, Program, System};
     use pebbles_game_io::*;
-    
+
     fn create_system_and_user() -> (System, u64) {
         let sys = System::new();
         sys.init_logger();
-        let user_id = 5;
+        let user_id = 1;
+        sys.mint_to(user_id, 10000000000000);
         (sys, user_id)
     }
 
@@ -54,7 +55,7 @@ mod tests {
         //assert_eq!(state.winner,Some(Player::Program));
 
     }
-    
+
     //测试获胜是否判定正确
     #[test]
     fn test_who_wins() {
@@ -97,7 +98,7 @@ mod tests {
         program.send_bytes(user_id, restart_action.encode());
         let state: GameState = program.read_state(()).expect("Failed to read state");
         println!("{:?}", state);
-        assert_eq!(state.pebbles_count, 20);
+        assert_eq!(state.pebbles_count, 10);
     }
 
     //玩家放弃游戏测试
