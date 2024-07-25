@@ -44,14 +44,14 @@ pub enum PebblesEvent {
     Won(Player),
 }
 
-#[derive(Debug, Default, Clone, Encode, Decode)]
+#[derive(Debug, Default, Clone, Encode, Decode, TypeInfo,PartialEq, Eq)]
 pub enum Player {
     #[default]
     User,
     Program,
 }
 
-#[derive(Debug, Default, Clone, Encode, Decode)]
+#[derive(Debug, Default, Clone, Encode, Decode, TypeInfo)]
 pub struct GameState {
     pub pebbles_count: u32,
     pub max_pebbles_per_turn: u32,
