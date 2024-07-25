@@ -167,10 +167,6 @@ fn get_random_u32() -> u32 {
     u32::from_le_bytes([hash[0], hash[1], hash[2], hash[3]])
 }
 
-#[cfg(test)]
-fn get_random_u32() -> u32 {
-    1
-}
 
 fn program_turn(game_state: &GameState) -> u32 {
     // 根据游戏难度选择程序的回合策略
