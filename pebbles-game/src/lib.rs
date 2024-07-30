@@ -1,50 +1,5 @@
 #![no_std]
-//!  The Pebble game assignment
-//!Task Description
-//!
-//! ```text
-//! The games rules are the following:
-//!
-//!    There are two players: User and Program. The first player is chosen randomly.
-//!    The game starts with N pebbles (e.g., N=15).
-//!    On the player's turn they must remove from 1 to K pebbles 
-//!    (e.g., if K=2, then the player removes 1 or 2 pebbles per turn).
-//!    The player who takes last pebble(s) is the winner.
-//!
-//!The Assignment
-//!
-//!    Write init() function that:
-//!        Receives PebblesInit using the msg::load function;
-//!        Checks input data for validness;
-//!        Chooses the first player using the exec::random function;
-//!        Processes the first turn if the first player is Program.
-//!        Fills the GameState structure.
-//!
-//!    Write the handle() function that:
-//!        Receives PebblesAction using msg::load function;
-//!        Checks input data for validness;
-//!        Processes the User's turn and check whether they win;
-//!        Processes the Program turn and check whether it wins;
-//!        Send a message to the user with the correspondent PebblesEvent;
-//!
-//!    Write the state() function that returns the GameState structure using the msg::reply function.
-//!
-//!Additional Information
-//!
-//! There are two difficulty levels in the game: DifficultyLevel::Easy and DifficultyLevel::Hard. 
-//! Program should choose the pebbles count to be removed randomly at the easy level, 
-//! and find the best pebbles count (find a winning strategy) at the hard level.
-//!
-//!Testing
-//!
-//!  You are to cover program initialization and all actions by tests using the gtest crate.
-//!
-//!    Check whether the game initialized correctly.
-//!    Check all program strategies (you may split the get_random_u32() function 
-//!    into two separated implementations for #[cfg(test)] and #[cfg(not(test))] environments).
-//!    Check negative scenarios and invalid input data processing.
-//!
-//! ```
+
 
 use gstd::{*};
 //use gstd::{msg, prelude::*};
@@ -62,13 +17,7 @@ pub fn get_random_u32() -> u32 {
     u32::from_le_bytes([hash[0], hash[1], hash[2], hash[3]])
 }
 
-/// There are 2 game modes: easy and hard.
-/// In easy mode, for each turn, the Program randomly chooses between 1 and the maximum numbewr of pebbles to remove.
-/// In hard mode, the Program tries to be a little more clever as the pebbles are running down. At first, the Program
-/// takes as many as they can on each turn. If the pebbles left are within the range of the maximum pebbles that can be taken
-/// per turn, the Program takes them all to win. The more complicated parts are trying not to take pebbles that would let the user do
-/// the same and win in the next round. Always try and keep the amount of pebbles left more than the maximum number of pebbles that can be taken 
-/// in a turn so that you don't let your opponent win. 
+
 pub fn get_pebbles_to_remove(game_state: &mut GameState) -> u32 {
     match game_state.difficulty {
         DifficultyLevel::Easy => (get_random_u32() % (game_state.max_pebbles_per_turn)) + 1,
