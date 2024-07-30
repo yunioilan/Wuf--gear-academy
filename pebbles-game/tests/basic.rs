@@ -1,129 +1,171 @@
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use gstd::prelude::*;
-    use gtest::{Log, Program, System};
-    use pebbles_game_io::*;
+use pebbles_game_io::*;
+use gstd::{*};
+use gtest::{Log, Program, System};
+use crate::scale_info::prelude::time::SystemTime;
+use crate::scale_info::prelude::time::UNIX_EPOCH;
+
+const ADMIN: u64 = 100;
+const MAX_NUMBER_OF_TURNS: u32 = 21; // for loop counter
+const MAX_PEBBLES_PER_TURN: u32 = 2;
+const PEBBLES_COUNT: u32 = 15;
+const DIFFICULTY: DifficultyLevel = DifficultyLevel::Easy;
 
 
-    fn create_system_and_user() -> (System, u64) {
-        let sys = System::new();
-        sys.init_logger();
-        let user_id = 1;
-        sys.mint_to(user_id, 10000000000000); // 初始化用户余额，至少为存在性存款
-        (sys, user_id)
+#[test]
+fn success_restart_game() {
+    let debug_me: bool = false;
+    let system = System::new();
+
+    system.init_logger();
+    let game = Program::current(&system);
+    let program_id= game.id();
+    if debug_me { println!("program id: {:?}", program_id); }
+    let game_init_result = game.send(
+        ADMIN,
+        PebblesInit {
+                difficulty: DIFFICULTY,
+                pebbles_count: PEBBLES_COUNT,
+                max_pebbles_per_turn: MAX_PEBBLES_PER_TURN,
+        },
+    );
+    assert!(!game_init_result.main_failed());
+    let state: GameState = game.read_state(b"").unwrap();
+    if debug_me { println!("state >>>>>>>>>>>>>>>>>>>>>> {:?}", state); }
+    for i in 1..MAX_NUMBER_OF_TURNS {
+        if i == 3 { 
+            let res = game.send(
+              ADMIN,
+              PebblesAction::Restart {
+                difficulty: DIFFICULTY,
+                pebbles_count: PEBBLES_COUNT,
+                max_pebbles_per_turn: MAX_PEBBLES_PER_TURN,
+              },
+            );
+            if debug_me { println!("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX  res = {:?}", res); }
+            break; 
+        }
+        let nanos = (SystemTime::now().duration_since(UNIX_EPOCH).expect("REASON").subsec_nanos()%MAX_PEBBLES_PER_TURN)+1;
+        if debug_me { println!("Random number of pebbles that user will remove: {nanos}"); }
+        let user_choice = nanos;
+        let _res = game.send(ADMIN, PebblesAction::Turn(user_choice));
+        //let current_game_state = game.state();
+        let state: GameState = game.read_state(b"").unwrap();
+        let pebbles_remaining: u32 = state.pebbles_remaining;
+        if debug_me { println!("{:?} state >>>>>>>>>>>>>>>>>>>>>> {:?}", i, state); }
+        if debug_me { println!("{:?} state >>>>>>>>>>>>>>>>>>>>>> {:?}", i, pebbles_remaining); }
+        if pebbles_remaining <= 0 { println!("break break"); break; }
+        if debug_me { println!("{:?} user chose {:?} pebbles: ", i, user_choice); }
     }
+        let nanos = (SystemTime::now().duration_since(UNIX_EPOCH).expect("REASON").subsec_nanos()%MAX_PEBBLES_PER_TURN)+1;
+        let user_choice = nanos;
+        let _res = game.send(ADMIN, PebblesAction::Turn(user_choice));
+        let _res = game.send(ADMIN, PebblesAction::Turn(user_choice));
+    let state: GameState = game.read_state(b"").unwrap();
+    let pebbles_remaining: u32 = state.pebbles_remaining;
+    let winner: Option<Player> = state.winner.clone();
+    //let winner: Option<Player> = state.winner.as_ref().expect("REASON").clone();
+    if debug_me { println!("state >>>>>>>>>>>>>>>>>>>>>> {:?}", state); }
+    if debug_me { println!("state pebbles_remaining >>>>>>>>>>>>>>>>>>>>>> {:?}", pebbles_remaining); }
+    if debug_me { println!("state winner >>>>>>>>>>>>>>>>>>>>>> {:?}", winner); }
+    assert_ne!(pebbles_remaining, 0);
+    assert_eq!(winner, None);
+}
+#[test]
+fn success_giveup() {
+    let debug_me: bool = false;
+    let system = System::new();
 
-    #[test]
-    fn test_init_success() {
-        let (sys, user_id) = create_system_and_user();
-        let program = Program::current(&sys);
+    system.init_logger();
+    let game = Program::current(&system);
+    let program_id= game.id();
+    if debug_me { println!("program id: {:?}", program_id); }
+    let game_init_result = game.send(
+        ADMIN,
+        PebblesInit {
+                difficulty: DIFFICULTY,
+                pebbles_count: PEBBLES_COUNT,
+                max_pebbles_per_turn: MAX_PEBBLES_PER_TURN,
+        },
+    );
+    assert!(!game_init_result.main_failed());
+    let state: GameState = game.read_state(b"").unwrap();
+    if debug_me { println!("state >>>>>>>>>>>>>>>>>>>>>> {:?}", state); }
+    for i in 1..MAX_NUMBER_OF_TURNS {
+        if i == 3 { 
+           let res = game.send(ADMIN, PebblesAction::GiveUp); 
+           if debug_me { println!("{:?} state GIVEUP >>>>>>>>>>>>>>>>>>>>>> {:?}", i, state); }
+           if debug_me { println!("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX  res = {:?}", res); }
+           //assert!(res.contains(&Log::builder().payload(PebblesEvent::Moo)));
+           //assert!(res.contains(&Log::builder().payload(PebblesEvent::Won)));
+           //assert!(res.contains(&Log::builder().payload(PebblesEvent::Won)));
+           let expected_log = Log::builder().dest(ADMIN).payload(PebblesEvent::Won(Player::Program));
+           assert!(res.contains(&expected_log));//Make sure the message was sent
 
-        let init_msg = PebblesInit {
-            difficulty: DifficultyLevel::Easy,
-            pebbles_count: 10,
-            max_pebbles_per_turn: 3,
-        };
-
-        let res = program.send_bytes(user_id, init_msg.encode());
-        println!("{:?}", res);
-
-                let state: GameState = program.read_state(()).expect("Failed to read state");
-                assert_eq!(state.pebbles_count, 10);
-                assert_eq!(state.max_pebbles_per_turn, 3);
-                assert_eq!(state.pebbles_remaining, 7);
-                assert!(state.first_player == Player::User || state.first_player == Player::Program);
-
+           // look in res to see the winner
+           break; 
+        }
+        let nanos = (SystemTime::now().duration_since(UNIX_EPOCH).expect("REASON").subsec_nanos()%MAX_PEBBLES_PER_TURN)+1;
+        if debug_me { println!("Random number of pebbles that user will remove: {nanos}"); }
+        let user_choice = nanos;
+        let _res = game.send(ADMIN, PebblesAction::Turn(user_choice));
+        // look in res for winner or current count
+        //let current_game_state = game.state();
+        let state: GameState = game.read_state(b"").unwrap();
+        let pebbles_remaining: u32 = state.pebbles_remaining;
+        if debug_me { println!("{:?} state >>>>>>>>>>>>>>>>>>>>>> {:?}", i, state); }
+        if debug_me { println!("{:?} state >>>>>>>>>>>>>>>>>>>>>> {:?}", i, pebbles_remaining); }
+        if pebbles_remaining <= 0 { println!("break break"); break; }
+        if debug_me { println!("{:?} user chose {:?} pebbles: ", i, user_choice); }
     }
+    let state: GameState = game.read_state(b"").unwrap();
+    let pebbles_remaining: u32 = state.pebbles_remaining;
+    let winner: Player = state.winner.as_ref().expect("REASON").clone();
+    if debug_me { println!("state >>>>>>>>>>>>>>>>>>>>>> {:?}", state); }
+    if debug_me { println!("state pebbles_remaining >>>>>>>>>>>>>>>>>>>>>> {:?}", pebbles_remaining); }
+    if debug_me { println!("state winner >>>>>>>>>>>>>>>>>>>>>> {:?}", winner); }
+    assert_ne!(pebbles_remaining, 0);
+    assert_eq!(winner, Player::Program);
+}
+#[test]
+fn success_run_game() {
+    let debug_me: bool = false;
+    let system = System::new();
 
-    //通过修改随机数的返回值来确定测试，如果回的是2，则player先开始，
-    //如果回的是1，则program先开始
-    #[test]
-    fn test_who_turn() {
-        let (sys, user_id) = create_system_and_user();
-
-        let program = Program::current(&sys);
-        let init_msg = PebblesInit {
-            difficulty: DifficultyLevel::Easy,
-            pebbles_count: 10,
-            max_pebbles_per_turn: 3,
-        };
-
-        program.send_bytes(1, init_msg.encode());
-        let turn_action = PebblesAction::Turn(3);
-        let res = program.send_bytes(user_id, turn_action.encode());
-        println!("{:?}", res);
-        let state: GameState = program.read_state(()).expect("Failed to read state");
-        println!("State: {:?}", state);
-        assert_eq!(state.first_player, Player::Program);
-        //assert_eq!(state.winner,Some(Player::Program));
-
+    system.init_logger();
+    let game = Program::current(&system);
+    let program_id= game.id();
+    if debug_me { println!("program id: {:?}", program_id); }
+    let game_init_result = game.send(
+        ADMIN,
+        PebblesInit {
+                difficulty: DIFFICULTY,
+                pebbles_count: PEBBLES_COUNT,
+                max_pebbles_per_turn: MAX_PEBBLES_PER_TURN,
+        },
+    );
+    assert!(!game_init_result.main_failed());
+    let state: GameState = game.read_state(b"").unwrap();
+    if debug_me { println!("state >>>>>>>>>>>>>>>>>>>>>> {:?}", state); }
+    for i in 1..MAX_NUMBER_OF_TURNS {
+        let nanos = (SystemTime::now().duration_since(UNIX_EPOCH).expect("REASON").subsec_nanos()%MAX_PEBBLES_PER_TURN)+1;
+        if debug_me { println!("Random number of pebbles that user will remove: {nanos}"); }
+        let user_choice = nanos;
+        let res = game.send(ADMIN, PebblesAction::Turn(user_choice));
+        if debug_me { println!("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX  res = {:?}", res); }
+        //let current_game_state = game.state();
+        let state: GameState = game.read_state(b"").unwrap();
+        let pebbles_remaining: u32 = state.pebbles_remaining;
+        if debug_me { println!("{:?} state >>>>>>>>>>>>>>>>>>>>>> {:?}", i, state); }
+        if debug_me { println!("{:?} state >>>>>>>>>>>>>>>>>>>>>> {:?}", i, pebbles_remaining); }
+        if pebbles_remaining <= 0 { println!("break break"); break; }
+        if debug_me { println!("{:?} user chose {:?} pebbles: ", i, user_choice); }
     }
-
-
-    //通过改变随机数来调整顺序，测试获胜的判定
-    #[test]
-    fn test_who_wins() {
-        let (sys, user_id) = create_system_and_user();
-        let program = Program::current(&sys);
-        let init_msg = PebblesInit {
-            difficulty: DifficultyLevel::Easy,
-            pebbles_count: 1,
-            max_pebbles_per_turn: 1,
-        };
-
-       let res=  program.send_bytes(user_id, init_msg.encode());
-
-        //let turn_action = PebblesAction::Turn(1);
-        //let ras = program.send_bytes(user_id, turn_action.encode());
-        let state: GameState = program.read_state(()).expect("Failed to read state");
-        println!("State: {:?}", state);
-        println!("{:?}", res);
-        assert_eq!(state.winner,Some(Player::Program));
-        //assert_eq!(state.winner,Some(Player::User));
-    }
-
-    #[test]
-    fn test_restart_game() {
-        let (sys, user_id) = create_system_and_user();
-        let program = Program::current(&sys);
-        let init_msg = PebblesInit {
-            difficulty: DifficultyLevel::Easy,
-            pebbles_count: 10,
-            max_pebbles_per_turn: 3,
-        };
-
-        program.send_bytes(user_id, init_msg.encode());
-
-        let restart_action = PebblesAction::Restart {
-            difficulty: DifficultyLevel::Hard,
-            pebbles_count: 20,
-            max_pebbles_per_turn: 5,
-        };
-
-        program.send_bytes(user_id, restart_action.encode());
-        let state: GameState = program.read_state(()).expect("Failed to read state");
-        println!("{:?}", state);
-        assert_eq!(state.pebbles_count, 20);
-    }
-
-    #[test]
-    fn test_give_up() {
-        let (sys, user_id) = create_system_and_user();
-        let program = Program::current(&sys);
-        let init_msg = PebblesInit {
-            difficulty: DifficultyLevel::Easy,
-            pebbles_count: 10,
-            max_pebbles_per_turn: 3,
-        };
-
-        program.send_bytes(user_id, init_msg.encode());
-
-        let give_up_action = PebblesAction::GiveUp;
-        let res = program.send_bytes(user_id, give_up_action.encode());
-        let state: GameState = program.read_state(()).expect("Failed to read state");
-        println!("{:?}", state);
-        println!("{:?}", res);
-        assert_eq!(state.winner,Some(Player::Program));
-    }
+    let state: GameState = game.read_state(b"").unwrap();
+    let pebbles_remaining: u32 = state.pebbles_remaining;
+    let winner: Player = state.winner.as_ref().expect("REASON").clone();
+    if debug_me { println!("state >>>>>>>>>>>>>>>>>>>>>> {:?}", state); }
+    if debug_me { println!("state pebbles_remaining >>>>>>>>>>>>>>>>>>>>>> {:?}", pebbles_remaining); }
+    if debug_me { println!("state winner >>>>>>>>>>>>>>>>>>>>>> {:?}", winner); }
+    assert_eq!(pebbles_remaining, 0);
+    assert!(winner == Player::Program || winner == Player::User);
 }
