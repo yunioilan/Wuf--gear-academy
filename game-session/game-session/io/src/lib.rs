@@ -3,17 +3,6 @@
 use gmeta::{In, InOut, Metadata, Out};
 use gstd::{collections::HashMap, prelude::*, ActorId, MessageId};
 
-pub struct GameSessionMetadata;
-
-impl Metadata for GameSessionMetadata {
-    type Init = In<GameSessionInit>;
-    type Handle = InOut<GameSessionAction, GameSessionEvent>;
-    type Reply = ();
-    type Others = ();
-    type Signal = ();
-    type State = Out<GameSessionState>;
-
-}
 
 #[derive(Debug, Default, Clone, Encode, Decode, TypeInfo)]
 pub struct GameSessionState {
@@ -170,4 +159,16 @@ impl From<&GameSession> for GameSessionState {
                 .collect(),
         }
     }
+}
+
+pub struct GameSessionMetadata;
+
+impl Metadata for GameSessionMetadata {
+    type Init = In<GameSessionInit>;
+    type Handle = InOut<GameSessionAction, GameSessionEvent>;
+    type Reply = ();
+    type Others = ();
+    type Signal = ();
+    type State = Out<GameSessionState>;
+
 }
